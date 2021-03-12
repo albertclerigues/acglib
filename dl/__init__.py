@@ -1,1 +1,1 @@
-from . import generators, losses, patch, testing, training
+from . import generators, losses, testing, training

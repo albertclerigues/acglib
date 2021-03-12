@@ -3,8 +3,14 @@ import copy
 import numpy as np
 import torch
 from torch.utils.data import Dataset as TorchDataset
+from torch.utils.data.dataloader import DataLoader
 
-class InstructionGenerator(TorchDataset):
+
+def construct_dataloader(*args, **kwargs):
+    return DataLoader(*args, **kwargs)
+
+
+class InstructionDataset(TorchDataset):
     def __init__(self, instructions, data, get_item_func):
         assert callable(get_item_func)
         self.instr = instructions
@@ -16,7 +22,6 @@ class InstructionGenerator(TorchDataset):
 
     def __getitem__(self, idx):
         return self.get_item(idx, self.instr[idx], self.data[idx])
-
 
 
 def get_normalize_params(arr, ntype, mask=None):
