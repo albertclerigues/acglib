@@ -36,7 +36,7 @@ def clip_centers_inside_bounds(centers, image_shape, patch_shape):
     """Clips centers so the extracted patch does not fall out of image bounds"""
     clipped_centers = np.clip(a=centers,
                               a_min=np.ceil(np.divide(patch_shape, 2.0)).astype(int),
-                              a_max=image_shape - np.ceil(np.divide(patch_shape, 2.0)).astype(int))
+                              a_max=image_shape - np.floor(np.divide(patch_shape, 2.0)).astype(int))
     return clipped_centers.tolist()
 
 
