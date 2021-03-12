@@ -15,19 +15,22 @@ def get_patch_span(shape):
     return tuple((int(np.floor((s - 1.) / 2.)), int(np.ceil((s - 1.) / 2.)) + 1) for s in shape)
 
 
-def get_patch(image, center, shape):
-    """Returns an image patch with the requested shape around the given center.
-    If the image has more dimensions than the given shape, only the last n dimensions will be sliced.
-    If a dimension from shape is even, the center will be offset by -1 in that dimension.
-    """
+def get_patch_slices(image, center, shape):
     # Compute the patch span around the center
     span = get_patch_span(shape)
     # Get slices for trailing_dims, of which we take all dims (i.e. all the batch, all the channels...)
     trailing_dim_slices = (image.ndim - len(center)) * (slice(None),)
     # Get slices for patched dimensions
-    patch_slices = tuple(slice(int(c_i) - sp_i[0], int(c_i) + sp_i[1]) for c_i, sp_i in zip(center, span))
-    # Return deepcopy of image patch
-    return copy.deepcopy(image[trailing_dim_slices + patch_slices])
+    patched_dim_slices = tuple(slice(int(c_i) - sp_i[0], int(c_i) + sp_i[1]) for c_i, sp_i in zip(center, span))
+    return trailing_dim_slices + patched_dim_slices
+
+
+def get_patch(image, center, shape):
+    """Returns an image patch with the requested shape around the given center.
+    If the image has more dimensions than the given shape, only the last n dimensions will be sliced.
+    If a dimension from shape is even, the center will be offset by -1 in that dimension.
+    """
+    return copy.deepcopy(image[get_patch_slices(image, center, shape)])
 
 
 def clip_centers_inside_bounds(centers, image_shape, patch_shape):
