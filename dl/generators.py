@@ -21,7 +21,7 @@ class InstructionDataset(TorchDataset):
         return len(self.instr)
 
     def __getitem__(self, idx):
-        return self.get_item(idx, self.instr[idx], self.data[idx])
+        return self.get_item(idx, self.instr[idx], self.data)
 
 
 def get_normalize_params(arr, ntype, mask=None):

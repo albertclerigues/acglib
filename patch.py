@@ -89,7 +89,7 @@ def sample_centers_balanced(labels_image, patch_shape, n, add_rand_offset=False,
     return clip_centers_inside_bounds(centers, labels_image.shape, patch_shape)
 
 
-def sample_patch_centers_weighted(weights_image, num_centers, patch_shape, add_rand_offset=False):
+def sample_centers_weighted(weights_image, num_centers, patch_shape, add_rand_offset=False):
     """Samples center coordinates for patch extraction with likelihood proportional to the weights"""
     # Compute the cumulative weight space for sampling
     w_accum = np.cumsum(weights_image)
