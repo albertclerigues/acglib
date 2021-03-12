@@ -48,7 +48,7 @@ def add_random_offset_to_centers(centers, image_shape, patch_shape):
     np.random.seed(0)  # Repeatability
     offset_range = np.divide(patch_shape, 2).astype(int)
     offset_values = offset_range * ( ( np.random.random_sample((len(centers), len(centers[0]))) - 0.5 ) * 2.0 )
-    centers = np.add(centers, offset_values)
+    centers = np.add(centers, np.rint(offset_values).astype(int))
     # Clip so none is out of bounds
     return clip_centers_inside_bounds(centers, image_shape, patch_shape)
 
