@@ -70,7 +70,9 @@ def sample_centers_uniform(image_shape, step, patch_shape, mask=None, max_center
     return clip_centers_inside_bounds(centers, image_shape, patch_shape)
 
 
-def sample_centers_balanced(labels_image, patch_shape, n, add_rand_offset=False, exclude=None):
+def sample_centers_balanced(labels_image, patch_shape, n, add_rand_offset=False, exclude=None, labels_fraction=None):
+    # TODO implement labels fraction
+
     # Get labels from which to extract centers
     label_ids = np.unique(labels_image)
     if exclude is not None:

@@ -1,3 +1,6 @@
+import numpy as np
+import nibabel as nib
+from .path import remove_ext
 from concurrent.futures.thread import ThreadPoolExecutor
 
 def parallel_run(func, args, num_threads):
@@ -17,6 +20,79 @@ def parallel_run(func, args, num_threads):
     pool.shutdown(wait=True)
     return results
 
+
+def save_nifti(filepath, arr, dtype=None, reference=None, channel_handling='none'):
+    """Saves the given volume array as a Nifti1Image using nibabel.
+
+    :param str filepath: filename where the nifti will be saved
+    :param numpy.ndarray arr: the array with shape (X, Y, Z) or (CH, X, Y, Z) to save in a nifti image
+    :param dtype: (optional) data type for the stored image (default: same dtype as `image`)
+    :param nibabel.Nifti1Image reference: (optional) reference nifti from where to take the affine transform and header
+    :param str channel_handling: (default: ``'none'``) One of ``'none'``, ``'last'`` or ``'split'``.
+        If ``none``, the array is stored in the nifti as given. If  ``'last'`` the channel dimension is put last, this
+        is useful to visualize images as multi-component data in *ITK-SNAP*. If ``'split'``, then the image channels
+        are each stored in a different nifti file.
+    """
+
+    # Multichannel image handling
+    assert channel_handling in {'none', 'last', 'split'}
+    if len(arr.shape) == 4 and channel_handling != 'none':
+        if channel_handling == 'last':
+            arr = np.transpose(arr, axes=(1, 2, 3, 0))
+        elif channel_handling == 'split':
+            for n, channel in enumerate(arr):
+                savename = '{}_ch{}.nii.gz'.format(remove_ext(filepath), n)
+                save_nifti(savename, channel, dtype=dtype, reference=reference)
+            return
+
+    if dtype is not None:
+        arr = arr.astype(dtype)
+
+    if reference is None:
+        nifti = nib.Nifti1Image(arr, np.eye(4))
+    else:
+        nifti = nib.Nifti1Image(arr, reference.affine, reference.header)
+
+    print("Saving nifti: {}".format(filepath))
+    nifti.to_filename(filepath)
+
+
+def load_nifti(filepath, arr, dtype=None, reference=None, channel_handling='none'):
+    """Saves the given volume array as a Nifti1Image using nibabel.
+
+    :param str filepath: filename where the nifti will be saved
+    :param numpy.ndarray arr: the array with shape (X, Y, Z) or (CH, X, Y, Z) to save in a nifti image
+    :param dtype: (optional) data type for the stored image (default: same dtype as `image`)
+    :param nibabel.Nifti1Image reference: (optional) reference nifti from where to take the affine transform and header
+    :param str channel_handling: (default: ``'none'``) One of ``'none'``, ``'last'`` or ``'split'``.
+        If ``none``, the array is stored in the nifti as given. If  ``'last'`` the channel dimension is put last, this
+        is useful to visualize images as multi-component data in *ITK-SNAP*. If ``'split'``, then the image channels
+        are each stored in a different nifti file.
+    """
+
+    raise NotImplementedError
+
+    # Multichannel image handling
+    assert channel_handling in {'none', 'last', 'split'}
+    if len(arr.shape) == 4 and channel_handling != 'none':
+        if channel_handling == 'last':
+            arr = np.transpose(arr, axes=(1, 2, 3, 0))
+        elif channel_handling == 'split':
+            for n, channel in enumerate(arr):
+                savename = '{}_ch{}.nii.gz'.format(remove_ext(filepath), n)
+                save_nifti(savename, channel, dtype=dtype, reference=reference)
+            return
+
+    if dtype is not None:
+        arr = arr.astype(dtype)
+
+    if reference is None:
+        nifti = nib.Nifti1Image(arr, np.eye(4))
+    else:
+        nifti = nib.Nifti1Image(arr, reference.affine, reference.header)
+
+    print("Saving nifti: {}".format(filepath))
+    nifti.to_filename(filepath)
 
 if __name__ == '__main__':
     print(parallel_run(lambda x: x/2, [[1], [2], [3]], num_threads=3))

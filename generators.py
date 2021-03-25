@@ -35,7 +35,7 @@ def get_normalize_params(arr, ntype, mask=None):
     elif ntype == 'minmax':
         pmin, pmax = np.nanpercentile(norm_img, [0.1, 99.9], axis=(-3, -2, -1), keepdims=True)
         means = (pmax - pmin) / 2.0
-        stds = (pmax - pmin) / 4.0 # Aprox to the -2, 2 range
+        stds = (pmax - pmin) / 2.0 # Aprox to the -2, 2 range
     else:
         raise ValueError
 
