@@ -37,7 +37,7 @@ def inference_image_patches(
 
     # Create patch generator with known patch center locations.
     patch_centers = sample_centers_uniform(image.shape[1:], step, patch_shape_in[1:])
-    patch_slices = [get_patch_slices(len(patch_shape_in) - 1, center, patch_shape_in[1:]) for center in patch_centers]
+    patch_slices = [get_patch_slices(len(patch_shape_in), center, patch_shape_in[1:]) for center in patch_centers]
 
     patch_gen = construct_dataloader(
         dataset=InstructionDataset(
@@ -50,7 +50,10 @@ def inference_image_patches(
     voting_img = torch.zeros((num_ch_out,) + image[0].shape, device=device).float()
     counting_img = torch.zeros_like(voting_img).float()
 
-    postprocess_model_output = lambda _ : _ if postprocess_patch_func is None else postprocess_patch_func
+    if postprocess_patch_func is None:
+        postprocess_model_output = lambda _ : _
+    else:
+        postprocess_model_output = postprocess_patch_func
 
     old_stdout = sys.stdout  # backup current stdout
     if not verbose: # Make print functions not write to terminal
