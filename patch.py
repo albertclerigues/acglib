@@ -70,9 +70,7 @@ def sample_centers_uniform(image_shape, step, patch_shape, mask=None, max_center
     return clip_centers_inside_bounds(centers, image_shape, patch_shape)
 
 
-def sample_centers_balanced(labels_image, patch_shape, n, add_rand_offset=False, exclude=None, labels_fraction=None):
-    # TODO implement labels fraction
-
+def sample_centers_balanced(labels_image, patch_shape, n, add_rand_offset=False, exclude=None):
     # Get labels from which to extract centers
     label_ids = np.unique(labels_image)
     if exclude is not None:
@@ -84,6 +82,23 @@ def sample_centers_balanced(labels_image, patch_shape, n, add_rand_offset=False,
     for label_id in label_ids:
         label_indexes = list(np.flatnonzero(labels_image == label_id))
         label_indexes = resample_regular(label_indexes, centers_per_label)
+        label_centers = np.transpose(np.unravel_index(label_indexes, shape=labels_image.shape)).tolist()
+        centers += label_centers
+    # Add random offset if required
+    if add_rand_offset:
+        centers = add_random_offset_to_centers(centers, labels_image.shape, patch_shape)
+    # Clip to bounds and return
+    return clip_centers_inside_bounds(centers, labels_image.shape, patch_shape)
+
+
+def sample_centers_labels_fraction(labels_image, labels_fractions, patch_shape, n, add_rand_offset=False):
+    # Compute the amount of centers per label
+    labels_num_centers = {lid: int(np.floor(n * lfraction)) for lid, lfraction in labels_fractions.items()}
+    # Sample all centers from each label, then regular resample to target goal
+    centers = []
+    for label_id, label_num_centers in labels_num_centers.items():
+        label_indexes = list(np.flatnonzero(labels_image == label_id))
+        label_indexes = resample_regular(label_indexes, label_num_centers)
         label_centers = np.transpose(np.unravel_index(label_indexes, shape=labels_image.shape)).tolist()
         centers += label_centers
     # Add random offset if required
