@@ -7,11 +7,11 @@ import os
 
 import sys
 
-from generators import InstructionDataset, construct_dataloader
-from patch import sample_centers_uniform, get_patch_slices
+from .generators import InstructionDataset, construct_dataloader
+from .patch import sample_centers_uniform, get_patch_slices
 
-from time_utils import RemainingTimeEstimator
-from print_utils import print_progress_bar
+from .time_utils import RemainingTimeEstimator
+from .print_utils import print_progress_bar
 
 
 def inference_image_patches(

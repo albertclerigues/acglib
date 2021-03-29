@@ -6,7 +6,7 @@ import numpy as np
 
 import sys
 
-from .list import resample_regular
+from .lists import resample_regular
 
 
 def get_patch_span(shape):
