@@ -37,7 +37,7 @@ def inference_image_patches(
 
     # Create patch generator with known patch center locations.
     patch_centers = sample_centers_uniform(image.shape[1:], step, patch_shape_in[1:])
-    patch_slices = get_patch_slices(len(patch_shape_in) - 1, patch_centers, patch_shape_in[1:])
+    patch_slices = [get_patch_slices(len(patch_shape_in) - 1, center, patch_shape_in[1:]) for center in patch_centers]
 
     patch_gen = construct_dataloader(
         dataset=InstructionDataset(
