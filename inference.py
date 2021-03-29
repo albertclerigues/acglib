@@ -28,7 +28,7 @@ def inference_image_patches(
     x_orig = copy.copy(image)
 
     image : np.ndarray
-    assert len(image.ndim) == len(patch_shape_in) == len(patch_shape_out) == 4
+    assert image.ndim == len(patch_shape_in) == len(patch_shape_out) == 4
     assert len(step) == 3
 
     # First pad image to ensure all voxels in volume are processed independently of extraction_step
@@ -36,7 +36,7 @@ def inference_image_patches(
     x = np.pad(image, pad_dims, mode='edge')
 
     # Create patch generator with known patch center locations.
-    patch_centers = sample_centers_uniform(image.shape, step, patch_shape_in)
+    patch_centers = sample_centers_uniform(image.shape[1:], step, patch_shape_in[1:])
     patch_slices = get_patch_slices(len(patch_shape_in - 1), patch_centers, patch_shape_in[1:])
 
     patch_gen = construct_dataloader(
