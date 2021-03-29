@@ -25,7 +25,7 @@ def inference_image_patches(
         extract_patch_func,
         postprocess_patch_func=None,
         verbose=True):
-    x_orig = copy.copy(image)
+    x_orig = copy.deepcopy(image)
 
     image : np.ndarray
     assert image.ndim == len(patch_shape_in) == len(patch_shape_out) == 4
@@ -36,18 +36,18 @@ def inference_image_patches(
     x = np.pad(image, pad_dims, mode='edge')
 
     # Create patch generator with known patch center locations.
-    patch_centers = sample_centers_uniform(image.shape[1:], step, patch_shape_in[1:])
+    patch_centers = sample_centers_uniform(x.shape[1:], step, patch_shape_in[1:])
     patch_slices = [get_patch_slices(len(patch_shape_in), center, patch_shape_in[1:]) for center in patch_centers]
 
     patch_gen = construct_dataloader(
         dataset=InstructionDataset(
-            instructions=patch_centers, data=image, get_item_func=extract_patch_func),
+            instructions=patch_centers, data=x, get_item_func=extract_patch_func),
         batch_size=batch_size,
         shuffle=False)
 
     # Put accumulation in torch (GPU accelerated :D)
     num_ch_out = patch_shape_out[0]
-    voting_img = torch.zeros((num_ch_out,) + image[0].shape, device=device).float()
+    voting_img = torch.zeros((num_ch_out,) + x[0].shape, device=device).float()
     counting_img = torch.zeros_like(voting_img).float()
 
     if postprocess_patch_func is None:
@@ -63,7 +63,7 @@ def inference_image_patches(
     model.eval()
     model.to(device)
     with torch.no_grad():
-        rta = RemainingTimeEstimator(len(patch_gen)) if verbose else None
+        rta = RemainingTimeEstimator(len(patch_gen))
 
         for n, (x_patch, x_slice) in enumerate(zip(patch_gen, patch_slices)):
             x_patch = x_patch.to(device)
