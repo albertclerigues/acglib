@@ -1,7 +1,17 @@
+import subprocess
+
 import numpy as np
 import nibabel as nib
 from .path import remove_ext
 from concurrent.futures.thread import ThreadPoolExecutor
+
+
+def run_bash(cmd, v=True):
+    if v:
+        subprocess.check_call(['bash', '-c', cmd])
+    else:
+        subprocess.check_call(['bash', '-c', cmd], stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+
 
 def parallel_run(func, args, num_threads):
     """Runs func in parallel with the given args and returns an ordered list with the returned values."""
