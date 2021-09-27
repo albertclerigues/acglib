@@ -42,6 +42,21 @@ def get_path(filepath):
     return os.path.dirname(filepath)
 
 
+def list_dirs(p, full_path=True):
+    if full_path:
+        return sorted([f.path for f in os.scandir(p) if f.is_dir()])
+    else:
+        return sorted([f.name for f in os.scandir(p) if f.is_dir()])
+
+def list_files(p, full_path=True):
+    if full_path:
+        return sorted([f.path for f in os.scandir(p) if f.is_file()])
+    else:
+        return sorted([f.name for f in os.scandir(p) if f.is_file()])
+
+
 if __name__ == '__main__':
     print(remove_ext('/home/albert/Downloads/AIIM-D-20-00213_reviewer.pdf'))
     print(remove_ext('/home/albert/Downloads/AIIM-D-20-00213_reviewer'))
+
+    print(list_files('/home/albert/Desktop', full_path=False))
