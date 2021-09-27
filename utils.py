@@ -1,7 +1,7 @@
-import subprocess
-
 import numpy as np
 import nibabel as nib
+import subprocess
+
 from .path import remove_ext
 from concurrent.futures.thread import ThreadPoolExecutor
 

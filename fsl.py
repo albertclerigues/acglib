@@ -2,8 +2,48 @@ import subprocess
 import os
 import shutil
 import nibabel as nib
+import numpy as np
 
 from .path import remove_ext, make_dirs, get_path, get_filename
+
+
+def run_fsl_anat(fpath_in, do_fast, do_first, merge_fast_first, remove_anat_dir=True):
+    assert os.path.isfile(fpath_in), fpath_in
+
+    anat_dir = remove_ext(fpath_in) + '.anat'
+    fpaths_anat_fast = [os.path.join(anat_dir, 'T1_fast_pve_{}.nii.gz'.format(i)) for i in range(3)]
+    fpath_anat_first = os.path.join(anat_dir, 'T1_subcort_seg.nii.gz')
+
+    fpaths_tgt_fast = [remove_ext(fpath_in) + '_fast_{}.nii.gz'.format(i) for i in range(4)]
+    fpaths_tgt_fast_first = [remove_ext(fpath_in) + '_fast_first_{}.nii.gz'.format(i) for i in range(4)]
+
+    if not os.path.isfile(fpaths_tgt_fast_first[-1]):
+        if not all([os.path.isfile(faf) for faf in fpaths_anat_fast]) or not os.path.isfile(fpath_anat_first):
+            #anat_cmd =  f'fsl_anat --clobber --weakbias --nocrop --noreorient -i {fpath_in}'
+            anat_cmd =  f'fsl_anat --weakbias --nocrop --noreorient -i {fpath_in}'
+            print(anat_cmd)
+            subprocess.check_output(['bash', '-c', anat_cmd])
+
+        # Load FAST segmentations, add background prob channel and store in the target folder
+        fast_nifti = nib.load(fpaths_anat_fast[0])
+        fast_pves = [nib.load(fp).get_data() for fp in fpaths_anat_fast]
+        fast_pves.insert(0, 1.0 - np.sum(np.stack(fast_pves, axis=0), axis=0))  # Background probability
+        for fast_pve, fpath_tgt_fast in zip(fast_pves, fpaths_tgt_fast):
+            fast_pve_arr = np.round(fast_pve, decimals=5)
+            nib.Nifti1Image(fast_pve_arr, fast_nifti.affine, fast_nifti.header).to_filename(fpath_tgt_fast)
+
+        # Load first segmentation, overwrite the subcortical structures and store in target folder
+        first_seg = nib.load(fpath_anat_first).get_data()
+        fast_pves[1][first_seg > 0] = 0.0
+        fast_pves[2][first_seg > 0] = 1.0
+        fast_pves[3][first_seg > 0] = 0.0
+        for fast_pve, fpath_tgt_fast_first in zip(fast_pves, fpaths_tgt_fast_first):
+            fast_pve_arr = np.round(fast_pve, decimals=5)
+            nib.Nifti1Image(fast_pve_arr, fast_nifti.affine, fast_nifti.header).to_filename(fpath_tgt_fast_first)
+
+        if remove_anat_dir:
+            shutil.rmtree(anat_dir)
+
 
 def run_fast(filepath_in):
     print('Running FAST: {}'.format(filepath_in))
