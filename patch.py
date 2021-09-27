@@ -53,7 +53,7 @@ def add_random_offset_to_centers(centers, image_shape, patch_shape):
     return clip_centers_inside_bounds(centers, image_shape, patch_shape)
 
 
-def sample_centers_uniform(image_shape, step, patch_shape, mask=None, max_centers=None):
+def sample_centers_uniform(image_shape, step, patch_shape, mask=None, num_centers=None, add_rand_offset=False):
     assert len(image_shape) == len(patch_shape) == len(step), '{}, {}, {}'.format(image_shape, patch_shape, step)
     # Get patch span from the center in each dimension
     span = get_patch_span(patch_shape)
@@ -65,9 +65,26 @@ def sample_centers_uniform(image_shape, step, patch_shape, mask=None, max_center
         assert np.array_equal(image_shape, mask.shape)
         centers = [c for c in centers if mask[tuple(c)] != 0.0]
     # Resample to target number of centers
-    if max_centers is not None:
-        centers = resample_regular(centers, max_centers)
+    if num_centers is not None:
+        centers = resample_regular(centers, num_centers)
+    # Add random offset if required
+    if add_rand_offset:
+        centers = add_random_offset_to_centers(centers, image_shape, patch_shape)
     return clip_centers_inside_bounds(centers, image_shape, patch_shape)
+
+
+def sample_centers_mask(mask_image, patch_shape, n, add_rand_offset=False):
+    assert mask_image.ndim < 4
+    # Sample all flat indexes where mask is greater than 0
+    center_indexes = list(np.flatnonzero(mask_image > 0.0))
+    # Resample to target number of centers
+    center_indexes = resample_regular(center_indexes, n)
+    # Go from flat index to 2d/3d coordinates
+    centers = np.transpose(np.unravel_index(center_indexes, shape=mask_image.shape)).tolist()
+    # Add random offset if required
+    if add_rand_offset:
+        centers = add_random_offset_to_centers(centers, mask_image.shape, patch_shape)
+    return clip_centers_inside_bounds(centers, mask_image.shape, patch_shape)
 
 
 def sample_centers_balanced(labels_image, patch_shape, n, add_rand_offset=False, exclude=None):
