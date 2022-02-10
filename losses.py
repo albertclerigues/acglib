@@ -18,7 +18,7 @@ class LossWrap(nn.Module):
     :Example:
 
     >>> # Crossentropy loss needs a tensor of type long as target, but ours is of type float!
-    >>> my_loss = LossWrapper(nn.CrossEntropyLoss(), preprocess_fn=lambda output, target: (output, target.long()))
+    >>> my_loss = LossWrap(nn.CrossEntropyLoss(), preprocess_fn=lambda output, target: (output, target.long()))
     """
     def __init__(self, loss_fn, preprocess_fn=None, postprocess_fn=None):
         super().__init__()

@@ -67,7 +67,8 @@ def inference_image_patches(
 
         for n, (x_patch, x_slice) in enumerate(zip(patch_gen, patch_slices)):
             x_patch = x_patch.to(device)
-            y_pred = postprocess_model_output(model(x_patch))
+            y_pred = model(x_patch)
+            y_pred = postprocess_model_output(y_pred)
 
             batch_slices = patch_slices[batch_size * n:batch_size * (n + 1)]
             for predicted_patch, patch_slice in zip(y_pred, batch_slices):
@@ -75,21 +76,23 @@ def inference_image_patches(
                 counting_img[patch_slice] += torch.ones_like(predicted_patch)
 
             print_progress_bar( # If not verbose, stdout is redirected to devnull so nothing is printed
-                iteration=batch_size * n,
-                total=batch_size * len(patch_gen),
-                suffix=f'patches inferenced - ETA: {rta.update(n)}')
+                    iteration=batch_size * n,
+                    total=batch_size * len(patch_gen),
+                    suffix=f'patches - ETA: {rta.update(n)}',
+                    length=20)
 
         print_progress_bar( # If not verbose, stdout is redirected to devnull so nothing is printed
-            iteration=batch_size * len(patch_gen),
-            total=batch_size * len(patch_gen),
-            suffix=f'patches inferenced - ETA: {rta.elapsed_time()}')
+                iteration=batch_size * len(patch_gen),
+                total=batch_size * len(patch_gen),
+                suffix=f'patches - ETA: {rta.elapsed_time()}',
+                length=20)
 
     # Restore original stdout if we changed it to avoid printing
     sys.stdout = old_stdout
 
     counting_img[counting_img == 0.0] = 1.0  # Avoid division by 0
     predicted_volume = torch.div(voting_img, counting_img).detach().cpu().numpy()
-
+    
     # Unpad volume to return to original shape
     unpad_slice = \
         [slice(None)] + [slice(in_dim[0], x_dim - in_dim[0]) for in_dim, x_dim in zip(pad_dims[1:], x.shape[1:])]

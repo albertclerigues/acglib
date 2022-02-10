@@ -20,10 +20,8 @@ def print_progress_bar(iteration, total, prefix='', suffix='', decimals=1, lengt
     >>>     print_progress_bar(i, len(files))
     >>>     process_file(file) # ...
     """
-
-    if total == 0:
-        total += 1
-
+    total = max(total - 1, 1)
+    
     percent = ('{0:.' + str(decimals) + 'f}').format(100 * (iteration / float(total)))
     filledLength = int(length * iteration // total) + 1
     bar = fill * filledLength + '>' * min(length - filledLength, 1) + '.' * (length - filledLength - 1)
@@ -31,4 +29,5 @@ def print_progress_bar(iteration, total, prefix='', suffix='', decimals=1, lengt
     print('\r {} [{}] {}/{} ({}%) {}'.format(prefix, bar, iteration, total, percent, suffix), end='\r')
     if iteration >= total:  # Print new line on completion
         print(' ')
+    
     sys.stdout.flush()
