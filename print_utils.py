@@ -31,3 +31,7 @@ def print_progress_bar(iteration, total, prefix='', suffix='', decimals=1, lengt
         print(' ')
     
     sys.stdout.flush()
+
+class ProgressBar:
+    def __init__(self, total):
+        pass

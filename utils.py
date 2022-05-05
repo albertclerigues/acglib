@@ -1,11 +1,16 @@
 import copy
 import csv
+import os
+import warnings
+import traceback
 
 import numpy as np
 import nibabel as nib
 import subprocess
+from skimage import measure
 
 from .path import remove_ext
+import concurrent
 from concurrent.futures.thread import ThreadPoolExecutor
 from .print_utils import print_progress_bar
 
@@ -16,23 +21,39 @@ def run_bash(cmd, v=True):
         subprocess.check_call(['bash', '-c', cmd], stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
 
 
-def parallel_run(func, args, num_threads, do_print_progress_bar=False, progress_bar_prefix='', progress_bar_suffix=''):
+def parallel_run(func, args, num_threads, do_print_progress_bar=False, progress_bar_prefix='', progress_bar_suffix='',
+                 ignore_exceptions=True):
     """Runs func in parallel with the given args and returns an ordered list with the returned values."""
     # Assert list of lists to comply with variadic positional arguments (i.e. the * in fn(*args))
-    assert all([isinstance(arg, list) for arg in args]), 'Function arguments must be given as list'
+    assert all([isinstance(arg, list) or isinstance(arg, tuple)  or isinstance(arg, dict) for arg in args]), \
+        'Function arguments must be given as tuple, list or dictionary'
     assert callable(func), 'func must be a callable function'
     # Define output variable and load function wrapper to maintain correct list order
     results = [None] * len(args)
     def _run_load_func(n_, args_):
-        results[n_] = func(*args_)
+        if isinstance(args_, list) or isinstance(args_, tuple):
+            results[n_] = func(*args_)
+        elif isinstance(args_, dict):
+            results[n_] = func(**args_)
+        else:
+            raise ValueError('Function arguments were not tuple, list or dict')
     # Parallel run func and store the results in the right place
     pool = ThreadPoolExecutor(max_workers=num_threads)
     future_tasks = [pool.submit(_run_load_func, n, args) for n, args in enumerate(args)]
     # Check if any exceptions occured during execution
     for n, future_task in enumerate(future_tasks):
-        future_task.result()
         if do_print_progress_bar:
             print_progress_bar(n, len(future_tasks), progress_bar_prefix, progress_bar_suffix)
+        concurrent.futures.wait([future_task])
+        try:
+            future_task.result()
+        except Exception as e:
+            print('ERROR: parallel_run task had an exception')
+            print(str(e.__traceback__))
+            if ignore_exceptions:
+                print('INFO: parallel_run continuing execution...')
+            else:
+                raise e
     pool.shutdown(wait=True)
     return results
 
@@ -130,6 +151,27 @@ def save_dict_to_csv(filepath, dict_list):
             row_dict_.update(row_dict)
             csv_writer.writerow(row_dict_)
             
+
+def list_dirs(p):
+    return list(sorted([f for f in os.scandir(p) if f.is_dir()], key=lambda f: f.name))
+
+def list_files(p):
+    return list(sorted([f for f in os.scandir(p) if f.is_file()], key=lambda f: f.name))
+    
+    
+def get_largest_connected_component(segmentation):
+    """Returns the largest connected component of the given binary segmentation.
+
+    :param segmentation: numpy array, either boolean or numerical where 0 is background and 1 foreground.
+    """
+
+    labels = measure.label(segmentation) # Get connected components
+    if labels.max() == 0: # assume at least 1 CC
+        warnings.warn('Empty segmentation when getting largest connected component', UserWarning)
+        return segmentation
+    return np.equal(labels, np.argmax(np.bincount(labels.flat)[1:])+1).astype(segmentation.dtype)
+
+
 
 if __name__ == '__main__':
     print(parallel_run(lambda x: x/2, [[1], [2], [3]], num_threads=3))

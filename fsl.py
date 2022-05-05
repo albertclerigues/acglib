@@ -3,6 +3,7 @@ import os
 import shutil
 import nibabel as nib
 import numpy as np
+import tempfile
 
 from .path import remove_ext, make_dirs, get_path, get_filename
 
@@ -112,3 +113,139 @@ def segment_tissue(filepath_in):
     os.remove(os.path.join(remove_ext(filepath_in) + '_mixeltype.nii.gz'))
     os.remove(os.path.join(remove_ext(filepath_in) + '_pveseg.nii.gz'))
     os.remove(os.path.join(remove_ext(filepath_in) + '_seg.nii.gz'))
+
+
+def run_fsl_bet(t1_fp, brain_out_fp=None, brain_mask_out_fp=None, skull_out_fp=None, betopts='-R -S'):
+    with tempfile.TemporaryDirectory() as tempdir:
+        t1_fp_in = os.path.join(tempdir, 't1.nii.gz')
+        brain_fp = os.path.join(tempdir, 't1_bet_brain.nii.gz')
+        brain_mask_fp = os.path.join(tempdir, 't1_bet_brain_mask.nii.gz')
+        skull_fp = os.path.join(tempdir, 't1_bet_brain_skull.nii.gz')
+
+        shutil.copy(t1_fp, t1_fp_in)
+        subprocess.check_output(['bash', '-c', f'bet {t1_fp_in} t1_bet_brain -s {betopts}'], cwd=tempdir)
+
+        if brain_out_fp is not None:
+            shutil.copy(brain_fp, brain_out_fp)
+
+        if brain_mask_out_fp is not None:
+            shutil.copy(brain_mask_fp, brain_mask_out_fp)
+
+        if skull_out_fp is not None:
+            shutil.copy(skull_fp, skull_out_fp)
+
+
+def run_fsl_pairreg(ref_brain_fp, mov_brain_fp, ref_skull_fp, mov_skull_fp, transform_fp):
+    subprocess.check_output(
+        ['bash', '-c', f'pairreg {ref_brain_fp} {mov_brain_fp} {ref_skull_fp} {mov_skull_fp} {transform_fp}'])
+
+def apply_fsl_transform(filepath_in, filepath_ref, filepath_out, filepath_transform, fsldir='/usr/local/fsl'):
+    tx_cmd = '{}/bin/flirt -out {} -applyxfm -init {} -ref {} -in {}'.format(
+        fsldir, filepath_out, filepath_transform, filepath_ref, filepath_in)
+    subprocess.check_output(['bash', '-c', tx_cmd])
+
+
+def invert_fsl_transform(filepath_transform, filepath_inverse, fsldir='/usr/local/fsl'):
+    subprocess.check_output(
+        ['bash', '-c', f'{fsldir}/bin/convert_xfm -inverse -omat {filepath_inverse} {filepath_transform}'])
+
+
+def run_fsl_pairreg_halfway_registration(
+        baseline_fpath,
+        followup_fpath,
+        baseline_brain_fpath,
+        followup_brain_fpath,
+        baseline_skull_fpath=None,
+        followup_skull_fpath=None,
+        baseline_half_fpath_out=None,
+        followup_half_fpath_out=None,
+        baseline_to_half_fpath_out=None,
+        followup_to_half_fpath_out=None,
+        fsldir='/usr/local/fsl'
+    ):
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # First compute brains or skulls for both images if not given
+        if baseline_brain_fpath is None or baseline_skull_fpath is None:
+            if baseline_brain_fpath is None:
+                baseline_brain_fpath = bet_baseline_brain_fpath = os.path.join(tmpdir, 'baseline_brain.nii.gz')
+            else:
+                bet_baseline_brain_fpath = None
+
+            if baseline_skull_fpath is None:
+                baseline_skull_fpath = bet_baseline_skull_fpath = os.path.join(tmpdir, 'baseline_skull.nii.gz')
+            else:
+                bet_baseline_skull_fpath = None
+
+            run_fsl_bet(t1_fp=baseline_fpath,
+                        brain_out_fp=bet_baseline_brain_fpath,
+                        skull_out_fp=bet_baseline_skull_fpath,
+                        betopts='-R -S -B')
+
+        if followup_brain_fpath is None or followup_skull_fpath is None:
+            if followup_brain_fpath is None:
+                followup_brain_fpath = bet_followup_brain_fpath = os.path.join(tmpdir, 'followup_brain.nii.gz')
+            else:
+                bet_followup_brain_fpath = None
+
+            if followup_skull_fpath is None:
+                followup_skull_fpath = bet_followup_skull_fpath = os.path.join(tmpdir, 'followup_skull.nii.gz')
+            else:
+                bet_followup_skull_fpath = None
+
+            run_fsl_bet(t1_fp=followup_fpath,
+                        brain_out_fp=bet_followup_brain_fpath,
+                        skull_out_fp=bet_followup_skull_fpath,
+                        betopts='-R -S -B')
+
+        # Now execute asymmetric pairreg registration forwards and backwards
+        baseline_to_followup_fpath = os.path.join(tmpdir, 'baseline_to_followup.mat')
+        run_fsl_pairreg(followup_brain_fpath, baseline_brain_fpath,
+                        followup_skull_fpath, baseline_skull_fpath,
+                        baseline_to_followup_fpath)
+
+        followup_to_baseline_fpath = os.path.join(tmpdir, 'followup_to_baseline.mat')
+        run_fsl_pairreg(baseline_brain_fpath, followup_brain_fpath,
+                        baseline_skull_fpath, followup_skull_fpath,
+                        followup_to_baseline_fpath)
+
+        ### Now compute halfway transforms and transform images
+        # Declare input and output filepaths
+        B, F = baseline_fpath, followup_fpath
+        Bbrain, Fbrain = baseline_brain_fpath, followup_brain_fpath
+        B2F, F2B = baseline_to_followup_fpath, followup_to_baseline_fpath # F, B
+        B2h, F2h = os.path.join(tmpdir, 'B2h.mat'), os.path.join(tmpdir, 'F2h.mat')
+        # Declare temporary filepaths
+        B2F_F2B = os.path.join(tmpdir, 'tmp_B2F_then_F2B.mat')
+        B2F_F2B_scale = os.path.join(tmpdir, 'tmp_B2F_then_F2B.avscale')
+        B2F_F2B_halfback = os.path.join(tmpdir, 'tmp_B2F_then_F2B_halfback.mat')
+        F2B_scale = os.path.join(tmpdir, 'F2B.mat_avscale')
+        # Run the commands to create the halfway transforms
+        for cmd in [# replace both transforms with "average" (reduces error level AND makes system symmetric)
+                    f'{fsldir}/bin/convert_xfm -concat {F2B} -omat {B2F_F2B} {B2F}',
+                    f'{fsldir}/bin/avscale {B2F_F2B} {B} > {B2F_F2B_scale}',
+                    f'{fsldir}/bin/extracttxt Backward {B2F_F2B_scale} 4 1 > {B2F_F2B_halfback}',
+                    f'{fsldir}/bin/convert_xfm -concat {B2F_F2B_halfback} -omat {B2F} {B2F}',
+                    f'{fsldir}/bin/convert_xfm -inverse -omat {F2B} {B2F}',
+                    # replace the .mat matrix that takes 2->1 with 2->halfway and 1->halfway
+                    f'{fsldir}/bin/avscale {F2B} {Bbrain} > {F2B_scale}',
+                    f'{fsldir}/bin/extracttxt Forward {F2B_scale} 4 1 > {F2h}',
+                    f'{fsldir}/bin/extracttxt Backward {F2B_scale} 4 1 > {B2h}']:
+            subprocess.check_output(['bash', '-c', cmd])
+
+        ### Copy results
+        if baseline_to_half_fpath_out is not None:
+            os.makedirs(os.path.dirname(baseline_to_half_fpath_out), exist_ok=True)
+            shutil.copy(B2h, baseline_to_half_fpath_out)
+
+        if followup_to_half_fpath_out is not None:
+            os.makedirs(os.path.dirname(followup_to_half_fpath_out), exist_ok=True)
+            shutil.copy(F2h, followup_to_half_fpath_out)
+
+        if baseline_half_fpath_out is not None:
+            tx_cmd = f'{fsldir}/bin/flirt -out {baseline_half_fpath_out} -applyxfm -init {B2h} -ref {B} -in {B}'
+            subprocess.check_output(['bash', '-c', tx_cmd])
+
+        if followup_half_fpath_out is not None:
+            tx_cmd = f'{fsldir}/bin/flirt -out {followup_half_fpath_out} -applyxfm -init {F2h} -ref {B} -in {F}'
+            subprocess.check_output(['bash', '-c', tx_cmd])

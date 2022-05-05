@@ -53,12 +53,23 @@ def add_random_offset_to_centers(centers, image_shape, patch_shape):
     return clip_centers_inside_bounds(centers, image_shape, patch_shape)
 
 
-def sample_centers_uniform(image_shape, step, patch_shape, mask=None, num_centers=None, add_rand_offset=False):
-    assert len(image_shape) == len(patch_shape) == len(step), '{}, {}, {}'.format(image_shape, patch_shape, step)
+def sample_centers_uniform(
+    image_shape,
+    step,
+    patch_shape,
+    mask=None,
+    num_centers=None,
+    add_rand_offset=False,
+    ensure_full_coverage=False
+):
+    assert len(image_shape) == len(patch_shape) == len(step), f'{image_shape}, {patch_shape}, {step}'
     # Get patch span from the center in each dimension
     span = get_patch_span(patch_shape)
+    # Compute stop_offset for the case of full_image_coverage
+    stop_offset = step if ensure_full_coverage else (0,) * len(step)
     # Generate the sampling indexes for each dimension first and then get all their combinations (itertools.product)
-    dim_indexes = [list(range(sp[0], ims - sp[1] + 1, st)) for sp, ims, st in zip(span, image_shape, step)]
+    dim_indexes = [list(range(sp[0], ims - sp[1] + 1 + so, st)) 
+                   for sp, ims, st, so in zip(span, image_shape, step, stop_offset)]
     centers = list(itertools.product(*dim_indexes))
     # If mask is given, keep centers where mask is nonzero
     if mask is not None:

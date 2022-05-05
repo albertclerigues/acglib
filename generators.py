@@ -16,7 +16,7 @@ class InstructionDataset(TorchDataset):
         self.instr = instructions
         self.data = data
         self.get_item = get_item_func
-
+        
     def __len__(self):
         return len(self.instr)
 
